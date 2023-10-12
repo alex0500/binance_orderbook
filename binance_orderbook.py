@@ -8,7 +8,7 @@ import sqlite3
 import pandas
 
 from concurrent.futures import ProcessPoolExecutor
-from time import time
+from time import time, sleep
 from flask import Flask, render_template
 from livereload import Server  # tornado version <6.3
 
@@ -105,19 +105,18 @@ def process_data():
     oDB, oCursor = init_database(Constant.DB_FILE)
     create_table(oDB, Constant.PAIR)
     oOrderbook = Orderbook()
+    oSnapshot = request_snapshot(Constant.PAIR)
+    oOrderbook.reset(oSnapshot)
+    bStart_collecting = False
     while 1:
         oData = oQueue.get()
-        #print(oData)
-        if len(oData) == 3:
-            oOrderbook.reset(oData[1])
-            #print(oData[1])
-            continue
-        if oOrderbook.lastID == 0: continue
-
         oBook_update = json.loads(oData[1])
         if oBook_update.get('data') is None: continue
         if oBook_update['data']['u'] <= oOrderbook.lastID: continue
-        oOrderbook.update(oBook_update)
+        if oBook_update['data']['u'] >= oOrderbook.lastID + 1 and oBook_update['data']['U'] <= oOrderbook.lastID + 1:
+            bStart_collecting = True
+        if bStart_collecting:
+            oOrderbook.update(oBook_update)
 
         oUpdate_timestamp = {
         'local_timestamp': int(time() * 1000),  # timestamp in milisec resolution
@@ -169,7 +168,6 @@ def request_snapshot(aPair):
         del oRequest
         if oRequest_json.get('bids') is None:
             continue
-        oQueue.put((aPair, oRequest_json, 'snapshot'))
         break
     return oRequest_json
 
@@ -207,8 +205,8 @@ if __name__ == '__main__':
     oBook = multiprocessing.Queue()
 
     with ProcessPoolExecutor(max_workers=10) as oProcess:
-        oProcess.submit(process_data)
         oProcess.submit(connect_subscribe, Constant.PAIR)
-        oProcess.submit(request_snapshot, Constant.PAIR)
+        sleep(10)
+        oProcess.submit(process_data)
         server = Server(app.wsgi_app)
         server.serve(host='0.0.0.0', port=5000)
