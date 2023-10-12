@@ -29,7 +29,6 @@ class Exchange_socket:
 
 class Orderbook:
     def __init__(self):
-        #self.xBook = {'bid':{}, 'ask':{}}  # State of orderbook
         self.xBids = {}
         self.xAsks = {}
         self.lastID = 0
@@ -49,15 +48,12 @@ class Orderbook:
             self.xBids[str(oBid[0])] = str(oBid[1])
         for oAsk in oSnapshot['asks']:
             self.xAsks[str(oAsk[0])] = str(oAsk[1])
-        #print(self.xAsks)
         self.__process()
-        #print(self.xAsks)
 
     def update(self, oUpdate):
         try:
             for oBid in oUpdate['data']['b']:
                 if str(oBid[1]) == '0.00000000':
-                    #self.xBids.pop(str([oBid[0]]))
                     try:
                         del self.xBids[str([oBid[0]])]
                     except KeyError:
@@ -66,7 +62,6 @@ class Orderbook:
                 self.xBids[str(oBid[0])] = str(oBid[1])
             for oAsk in oUpdate['data']['a']:
                 if str(oAsk[1]) == '0.00000000':
-                    #self.xAsks.pop([str(oAsk[0])])
                     try:
                         del self.xAsks[str(oAsk[0])]
                     except KeyError:
@@ -101,8 +96,6 @@ def ws_connect(aPair):
         )
         oPayload_subcription = create_payload(aPair)
         oWs.send(json.dumps(oPayload_subcription))
-        #oQueue.put((aType, oWs.recv()))
-        #logging.info('Pairs: [%s][%s]', aType, xPairs)
         break
     return oWs
 
@@ -218,5 +211,4 @@ if __name__ == '__main__':
         oProcess.submit(connect_subscribe, Constant.PAIR)
         oProcess.submit(request_snapshot, Constant.PAIR)
         server = Server(app.wsgi_app)
-        server.serve()
-        #app.run()
+        server.serve(host='0.0.0.0', port=5000)
